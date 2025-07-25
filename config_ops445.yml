@@ -1,0 +1,73 @@
+###############################################################
+# Purpose: Configure a VM for OPS445 Lab 8
+# 
+# Tasks:
+#   - Update Apache
+#   - Install EPEL repo
+#   - Remove tree package
+#   - Set hostname to Seneca ID
+#   - Create user with sudo access
+#   - Configure SSH key access
+#   - Create lab directories with loop
+#
+# Author: Ricky Tang
+###############################################################
+
+---
+- hosts: vmlab
+  user: student
+  become: yes # privilege escalation 
+
+# set variables for seneca ID and pubkey
+  vars:
+    seneca_id: rtang41
+    ssh_pub_key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+# set tasks per lab requirements
+  tasks:
+
+    - name: update apache
+      yum:
+        name: httpd
+        state: latest
+
+    - name: install EPEL
+      yum:
+        name: epel-release
+        state: present
+
+    - name: remove tree package
+      yum:
+        name: tree
+        state: absent
+
+    - name: set hostname
+      hostname:
+        name: "{{ seneca_id }}"
+
+    - name: add user with sudo access
+      user:
+        name: "{{ seneca_id }}"
+        shell: /bin/bash
+        # wheel group for sudo access
+        groups: wheel
+        append: yes
+        state: present
+        create_home: yes
+
+    - name: auth key for passwordless SSH
+      authorized_key:
+        user: "{{ seneca_id }}"
+        state: present
+        key: "{{ ssh_pub_key }}"
+
+    - name: create lab directories with loop
+      file:
+        path: "/home/{{ seneca_id }}/ops445/lab{{ item }}"
+        state: directory
+        owner: "{{ seneca_id }}"
+        group: "{{ seneca_id }}"
+      # mode sets rwx perms for user, rx for group/other
+        mode: '0755'
+      # declare expression for range(inclusive,exclusive) like python; piped to a list for looping
+      loop: "{{ range(1, 9) | list }}" # lab1 to lab8
